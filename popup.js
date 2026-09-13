@@ -454,6 +454,12 @@ snapBtn.addEventListener("click", doSnap);
 resnapBtn.addEventListener("click", doSnap);
 
 async function doSnap() {
+  if (!currentUser) {
+    showStatus("⚠ Please sign in first to snap leads.", "error");
+    openAuthModal("signin");
+    return;
+  }
+
   snapIdle.classList.add("hidden");
   leadForm.classList.add("hidden");
   snapLoading.classList.remove("hidden");
@@ -517,6 +523,7 @@ function readForm() {
 
   return {
     ...currentLead,
+    userId:       currentUser?.uid || "",
     name:         currentLead?.contactName || bizName,
     businessName: bizName,
     email:        emailVal,
@@ -558,6 +565,7 @@ function formatWebhookPayload(lead) {
   const contactName = lead.contactName || lead.name || bizName;
 
   const topLevel = {
+    userId:       currentUser?.uid || lead.userId || "",
     name:         contactName,
     businessName: bizName,
     email:        lead.email || "",
@@ -789,6 +797,12 @@ exportCsvBtn.addEventListener("click", () => {
 mapsScrapeBtn.addEventListener("click", doMapsScrape);
 
 async function doMapsScrape() {
+  if (!currentUser) {
+    showMapsStatus("⚠ Please sign in first to scrape leads.", "error");
+    openAuthModal("signin");
+    return;
+  }
+
   // Check we're on Google Maps
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const url = tab.url || "";
@@ -887,7 +901,10 @@ function mergeMapLeads(newLeads) {
     });
 
     if (!exists) {
-      mapsLeads.unshift(lead); // newest first
+      mapsLeads.unshift({
+        ...lead,
+        userId: currentUser?.uid || ""
+      }); // newest first
     }
   });
 }
