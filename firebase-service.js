@@ -122,8 +122,65 @@ const firebaseService = (() => {
 
   // ── Firestore: Write ─────────────────────────────────────────────
 
+  function _formatFirestoreLead(lead, uid, type) {
+    const TOP_LEVEL_MODEL_KEYS = new Set([
+      "id",
+      "userId",
+      "businessName",
+      "challenge",
+      "createdAt",
+      "email",
+      "industry",
+      "name",
+      "phone",
+      "countryCode",
+      "revenue",
+      "source",
+      "status",
+      "website",
+      "address",
+      "templateId",
+      "templateName"
+    ]);
+
+    const id = lead._firestoreId || _leadId(lead, type);
+    const bizName = lead.businessName || lead.name || "";
+    const contactName = lead.contactName || lead.name || bizName;
+
+    const topLevel = {
+      id:           id,
+      userId:       uid,
+      created_by:   uid,
+      name:         contactName,
+      businessName: bizName,
+      email:        lead.email || "",
+      phone:        lead.phone || "",
+      website:      lead.website || lead.url || "",
+      address:      lead.address || "",
+      source:       lead.source || "Lead Snapper Extension",
+      status:       lead.status || "New",
+      industry:     lead.industry || lead.category || "",
+      challenge:    lead.challenge || lead.note || lead.description || "",
+      createdAt:    firebase.firestore.FieldValue.serverTimestamp(),
+      syncedAt:     firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    const customFields = {};
+    for (const [key, val] of Object.entries(lead)) {
+      if (!TOP_LEVEL_MODEL_KEYS.has(key) && val !== undefined && val !== null && val !== "") {
+        customFields[key] = val;
+      }
+    }
+
+    return {
+      ...topLevel,
+      customFields
+    };
+  }
+
   /**
    * Upsert an array of leads to Firestore.
+   * Writes to both top-level `leads` collection and `users/{uid}/snap_leads` (or `maps_leads`).
    * @param {Array}  leads  - lead objects
    * @param {string} type   - "snap" | "maps"
    * @returns {{ success: boolean, count?: number, reason?: string }}
@@ -135,19 +192,23 @@ const firebaseService = (() => {
 
     const collectionName = type === "maps" ? "maps_leads" : "snap_leads";
     const userRef = _db.collection("users").doc(user.uid);
+    const globalLeadsRef = _db.collection("leads");
 
-    // Firestore batch max = 500 ops
-    const CHUNK = 450;
+    // Firestore batch max = 500 ops (2 ops per lead = max 200 leads per batch)
+    const CHUNK = 200;
     for (let i = 0; i < leads.length; i += CHUNK) {
       const batch = _db.batch();
       leads.slice(i, i + CHUNK).forEach(lead => {
         const id  = _leadId(lead, type);
-        const ref = userRef.collection(collectionName).doc(id);
-        batch.set(ref, {
-          ...lead,
-          created_by: user.uid,
-          syncedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+        const docData = _formatFirestoreLead(lead, user.uid, type);
+
+        // 1. Write to user subcollection: users/{uid}/snap_leads/{id} or maps_leads/{id}
+        const userSubRef = userRef.collection(collectionName).doc(id);
+        batch.set(userSubRef, docData, { merge: true });
+
+        // 2. Write to global leads collection: leads/{id}
+        const globalRef = globalLeadsRef.doc(id);
+        batch.set(globalRef, docData, { merge: true });
       });
       await batch.commit();
     }

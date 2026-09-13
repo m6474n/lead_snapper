@@ -542,6 +542,11 @@ addToCsvBtn.addEventListener("click", async () => {
   await chrome.storage.local.set({ [STORAGE_KEY]: leads });
   updateBadge();
   renderTray();
+
+  // Directly sync lead to Firebase Firestore
+  if (currentUser) {
+    await syncOneLead(lead, "snap");
+  }
 });
 
 // ── Post Webhook ──────────────────────────────────────────────────
