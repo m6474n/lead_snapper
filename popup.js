@@ -401,12 +401,6 @@ snapBtn.addEventListener("click", doSnap);
 resnapBtn.addEventListener("click", doSnap);
 
 async function doSnap() {
-  if (!currentUser) {
-    showStatus("⚠ Please sign in first to snap leads.", "error");
-    openAuthModal("signin");
-    return;
-  }
-
   snapIdle.classList.add("hidden");
   leadForm.classList.add("hidden");
   snapLoading.classList.remove("hidden");
@@ -749,12 +743,6 @@ exportCsvBtn.addEventListener("click", () => {
 mapsScrapeBtn.addEventListener("click", doMapsScrape);
 
 async function doMapsScrape() {
-  if (!currentUser) {
-    showMapsStatus("⚠ Please sign in first to scrape leads.", "error");
-    openAuthModal("signin");
-    return;
-  }
-
   // Check we're on Google Maps
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const url = tab.url || "";
