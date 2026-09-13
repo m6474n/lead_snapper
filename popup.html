@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lead Snapper</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">◈</span>
+        <span class="logo-text">Lead<strong>Snapper</strong></span>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
+        <button class="badge-btn" id="countBadge" title="Saved leads">
+          <span id="leadCount">0</span>
+        </button>
+
+        <!-- Auth: Signed-out state -->
+        <button class="btn-google-signin" id="googleSignInBtn" title="Account / Sign in">
+          <svg class="google-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Sign in
+        </button>
+
+        <!-- Auth: Signed-in state (hidden until authenticated) -->
+        <div class="auth-user hidden" id="authUser">
+          <!-- Sync status pill -->
+          <div class="sync-pill" id="syncPill" title="Cloud sync status">
+            <span class="sync-dot" id="syncDot"></span>
+            <span class="sync-label" id="syncLabel">Synced</span>
+          </div>
+          <!-- User avatar + dropdown trigger -->
+          <button class="auth-avatar-btn" id="authAvatarBtn" title="Account">
+            <img class="auth-avatar" id="authAvatar" src="" alt="avatar" />
+            <span class="auth-name" id="authName"></span>
+            <span class="auth-caret">▾</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Auth Dropdown -->
+    <div class="auth-dropdown hidden" id="authDropdown">
+      <div class="auth-dropdown-user">
+        <img class="auth-dropdown-avatar" id="authDropdownAvatar" src="" alt="" />
+        <div class="auth-dropdown-info">
+          <div class="auth-dropdown-name" id="authDropdownName"></div>
+          <div class="auth-dropdown-email" id="authDropdownEmail"></div>
+        </div>
+      </div>
+      <div class="auth-dropdown-divider"></div>
+      <button class="auth-dropdown-item" id="syncNowBtn">
+        <span>🔄</span> Sync leads now
+      </button>
+      <button class="auth-dropdown-item" id="pullCloudBtn">
+        <span>⬇</span> Pull from cloud
+      </button>
+      <div class="auth-dropdown-divider"></div>
+      <button class="auth-dropdown-item danger" id="signOutBtn">
+        <span>⏻</span> Sign out
+      </button>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tabSnap" data-tab="snap">
+        <span class="tab-icon">⚡</span> Snap Lead
+      </button>
+      <button class="tab-btn" id="tabMaps" data-tab="maps">
+        <span class="tab-icon">📍</span> Maps Scraper
+      </button>
+    </div>
+
+    <!-- Settings Panel -->
+    <div class="settings-panel hidden" id="settingsPanel">
+      <div class="settings-inner">
+        <label class="field-label">Webhook Endpoint</label>
+        <input
+          type="url"
+          id="webhookUrl"
+          class="input-field mono"
+          placeholder="https://your-api.com/webhook"
+        />
+        <div class="settings-row">
+          <label class="toggle-label">
+            <input type="checkbox" id="autoPost" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            Auto-post on snap
+          </label>
+          <button class="btn-ghost btn-sm" id="saveSettings">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════ -->
+    <!-- TAB: Snap Lead                                  -->
+    <!-- ══════════════════════════════════════════════ -->
+    <div class="tab-panel" id="panelSnap">
+
+      <div class="main-view" id="mainView">
+        <div class="snap-zone" id="snapZone">
+          <div class="snap-idle" id="snapIdle">
+            <div class="snap-icon">◎</div>
+            <p class="snap-hint">Snap the active tab to extract lead data</p>
+            <button class="btn-primary" id="snapBtn">
+              <span class="btn-icon">⚡</span> Snap Lead
+            </button>
+          </div>
+
+          <div class="snap-loading hidden" id="snapLoading">
+            <div class="spinner"></div>
+            <p>Scanning page…</p>
+          </div>
+        </div>
+
+        <!-- Lead Form -->
+        <div class="lead-form hidden" id="leadForm">
+          <div class="form-header">
+            <div class="site-badge" id="siteBadge">
+              <span class="site-dot"></span>
+              <span id="siteUrl" class="mono truncate"></span>
+            </div>
+            <button class="btn-ghost btn-xs" id="resnapBtn">↻ Re-snap</button>
+          </div>
+
+          <div class="field-grid">
+            <div class="field-group full">
+              <label class="field-label">Business Name</label>
+              <input type="text" id="f-name" class="input-field" placeholder="—" />
+            </div>
+            <div class="field-group">
+              <label class="field-label">Email</label>
+              <input type="email" id="f-email" class="input-field" placeholder="—" />
+            </div>
+            <div class="field-group">
+              <label class="field-label">Phone</label>
+              <input type="tel" id="f-phone" class="input-field" placeholder="—" />
+            </div>
+            <div class="field-group full">
+              <label class="field-label">Address</label>
+              <input type="text" id="f-address" class="input-field" placeholder="—" />
+            </div>
+            <div class="field-group full">
+              <label class="field-label">Description</label>
+              <textarea id="f-desc" class="input-field textarea" rows="2" placeholder="—"></textarea>
+            </div>
+            <div class="field-group full">
+              <label class="field-label note-label">
+                <span class="note-icon">✎</span> Note
+                <span class="note-hint">Your runtime notes</span>
+              </label>
+              <textarea id="f-note" class="input-field textarea note-field" rows="2" placeholder="Add your note here…"></textarea>
+            </div>
+          </div>
+
+          <!-- Action Bar -->
+          <div class="action-bar">
+            <button class="btn-secondary" id="addToCsvBtn">
+              <span>＋</span> Add to CSV
+            </button>
+            <button class="btn-primary" id="postBtn">
+              <span>↗</span> Post Webhook
+            </button>
+          </div>
+
+          <!-- Status message -->
+          <div class="status-msg hidden" id="statusMsg"></div>
+        </div>
+      </div>
+
+      <!-- Leads Tray (bottom) -->
+      <div class="leads-tray hidden" id="leadsTray">
+        <div class="tray-header">
+          <span>Saved Leads (<span id="trayCount">0</span>)</span>
+          <div class="tray-actions">
+            <button class="btn-accent" id="syncTrayBtn" title="Sync all saved leads to Firebase">☁ Sync Firebase</button>
+            <button class="btn-ghost btn-xs danger" id="clearAllBtn">Clear All</button>
+            <button class="btn-accent" id="exportCsvBtn">⬇ Export CSV</button>
+          </div>
+        </div>
+        <div class="leads-list" id="leadsList"></div>
+      </div>
+
+    </div><!-- /panelSnap -->
+
+    <!-- ══════════════════════════════════════════════ -->
+    <!-- TAB: Maps Scraper                              -->
+    <!-- ══════════════════════════════════════════════ -->
+    <div class="tab-panel hidden" id="panelMaps">
+
+      <!-- Intro hint -->
+      <div class="maps-intro" id="mapsIntro">
+        <div class="maps-intro-icon">📍</div>
+        <p class="maps-intro-title">Google Maps Bulk Scraper</p>
+        <p class="maps-intro-desc">
+          Go to Google Maps, search for businesses, then press
+          <strong>Scrape This Page</strong>. Scroll to load more results and
+          scrape again — leads accumulate until you export.
+        </p>
+      </div>
+
+      <!-- Session Stats Bar -->
+      <div class="maps-stats" id="mapsStats">
+        <div class="maps-stat">
+          <span class="maps-stat-val" id="mapsLeadCount">0</span>
+          <span class="maps-stat-label">leads</span>
+        </div>
+        <div class="maps-stat-divider"></div>
+        <div class="maps-stat">
+          <span class="maps-stat-val" id="mapsPageCount">0</span>
+          <span class="maps-stat-label">scrapes</span>
+        </div>
+        <div class="maps-stat-divider"></div>
+        <div class="maps-stat">
+          <span class="maps-stat-val" id="mapsNewCount">+0</span>
+          <span class="maps-stat-label">last batch</span>
+        </div>
+      </div>
+
+      <!-- Scrape Controls -->
+      <div class="maps-controls">
+        <button class="btn-maps-scrape" id="mapsScrapeBtn">
+          <span class="maps-scrape-icon">⚡</span>
+          <span id="mapsScrapeLabel">Scrape This Page</span>
+        </button>
+        <button class="btn-ghost btn-sm" id="mapsClearBtn" title="Clear session">↺ Clear</button>
+      </div>
+
+      <!-- Maps scrape loading -->
+      <div class="maps-loading hidden" id="mapsLoading">
+        <div class="maps-progress-bar"><div class="maps-progress-fill" id="mapsProgressFill"></div></div>
+        <p class="maps-loading-text" id="mapsLoadingText">Scanning listings…</p>
+      </div>
+
+      <!-- Status -->
+      <div class="status-msg hidden" id="mapsStatusMsg"></div>
+
+      <!-- Live Preview List -->
+      <div class="maps-preview hidden" id="mapsPreview">
+        <div class="maps-preview-header">
+          <span class="maps-preview-title">Recent Leads</span>
+          <span class="maps-preview-hint">newest first</span>
+        </div>
+        <div class="maps-leads-list" id="mapsLeadsList"></div>
+      </div>
+
+      <!-- Export Footer -->
+      <div class="maps-footer">
+        <button class="btn-maps-export" id="mapsExportBtn" disabled>
+          <span>⬇</span> Export CSV
+          <span class="maps-export-count" id="mapsExportCount">(0)</span>
+        </button>
+      </div>
+
+    </div><!-- /panelMaps -->
+
+  </div>
+
+  <!-- Auth Modal -->
+  <div class="auth-modal-overlay hidden" id="authModal">
+    <div class="auth-modal-card">
+      <div class="auth-modal-header">
+        <h3 class="auth-modal-title" id="authModalTitle">Sign In</h3>
+        <button class="auth-modal-close" id="authModalClose">&times;</button>
+      </div>
+
+      <div class="auth-modal-body">
+        <!-- Google Sign-In option -->
+        <button class="btn-google-modal" id="modalGoogleSignInBtn">
+          <svg class="google-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Continue with Google
+        </button>
+
+        <div class="auth-divider">
+          <span>or with email</span>
+        </div>
+
+        <form id="emailAuthForm">
+          <div class="auth-field">
+            <label class="field-label" for="authEmail">Email</label>
+            <input type="email" id="authEmail" class="input-field" placeholder="name@example.com" required />
+          </div>
+          <div class="auth-field">
+            <label class="field-label" for="authPassword">Password</label>
+            <input type="password" id="authPassword" class="input-field" placeholder="••••••••" required minlength="6" />
+          </div>
+
+          <div class="auth-modal-error hidden" id="authModalError"></div>
+
+          <button type="submit" class="btn-primary auth-submit-btn" id="emailAuthSubmitBtn">
+            Sign In
+          </button>
+        </form>
+
+        <div class="auth-toggle-mode">
+          <span id="authToggleText">Need an account?</span>
+          <button type="button" class="auth-toggle-link" id="authToggleBtn">Register</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK (local — required for MV3 CSP) -->
+  <script src="firebase/firebase-app-compat.js"></script>
+  <script src="firebase/firebase-auth-compat.js"></script>
+  <script src="firebase/firebase-firestore-compat.js"></script>
+
+  <!-- App scripts -->
+  <script src="firebase-config.js"></script>
+  <script src="firebase-service.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
