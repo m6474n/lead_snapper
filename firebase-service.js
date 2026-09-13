@@ -56,7 +56,6 @@ const firebaseService = (() => {
     _ensureInit();
     if (!_auth) throw new Error("Firebase Auth service is unavailable.");
     const userCredential = await _auth.createUserWithEmailAndPassword(email, password);
-    await _saveUserProfile(userCredential.user);
     return userCredential.user;
   }
 
@@ -67,7 +66,6 @@ const firebaseService = (() => {
     _ensureInit();
     if (!_auth) throw new Error("Firebase Auth service is unavailable.");
     const userCredential = await _auth.signInWithEmailAndPassword(email, password);
-    await _saveUserProfile(userCredential.user);
     return userCredential.user;
   }
 

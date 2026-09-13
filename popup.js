@@ -282,27 +282,29 @@ pullCloudBtn.addEventListener("click", async () => {
 function renderAuthUI(user) {
   if (user) {
     // Signed in
-    googleSignInBtn.classList.add("hidden");
-    authUser.classList.remove("hidden");
+    if (googleSignInBtn) googleSignInBtn.classList.add("hidden");
+    if (authUser) authUser.classList.remove("hidden");
 
     const defaultAvatar = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d4f04e'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
     const avatar = user.photoURL || defaultAvatar;
     const name   = (user.displayName || user.email || "User").split("@")[0].split(" ")[0];
     const email  = user.email || "";
 
-    authAvatar.src         = avatar;
-    authName.textContent   = name;
-    authDropdownAvatar.src = avatar;
-    authDropdownName.textContent  = user.displayName || name;
-    authDropdownEmail.textContent = email;
+    if (authAvatar) authAvatar.src         = avatar;
+    if (authName) authName.textContent   = name;
+    if (authDropdownAvatar) authDropdownAvatar.src = avatar;
+    if (authDropdownName) authDropdownName.textContent  = user.displayName || name;
+    if (authDropdownEmail) authDropdownEmail.textContent = email;
 
     setSyncState("synced", "Synced");
   } else {
     // Signed out
-    googleSignInBtn.classList.remove("hidden");
-    googleSignInBtn.disabled = false;
-    googleSignInBtn.textContent = "Sign in";
-    authUser.classList.add("hidden");
+    if (googleSignInBtn) {
+      googleSignInBtn.classList.remove("hidden");
+      googleSignInBtn.disabled = false;
+      googleSignInBtn.textContent = "Sign in";
+    }
+    if (authUser) authUser.classList.add("hidden");
     closeDropdown();
   }
 }
