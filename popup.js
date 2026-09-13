@@ -108,9 +108,9 @@ async function init() {
   mapsLeads    = mapsData.leads || [];
   mapsPageCount = mapsData.pageCount || 0;
 
-  webhookUrlInput.value = settings.webhookUrl || "";
-  webhookApiKeyInput.value = settings.apiKey || "snapper_webhook_secret_key_2026";
-  autoPostInput.checked = !!settings.autoPost;
+  if (webhookUrlInput) webhookUrlInput.value = settings.webhookUrl || "";
+  if (webhookApiKeyInput) webhookApiKeyInput.value = settings.apiKey || "snapper_webhook_secret_key_2026";
+  if (autoPostInput) autoPostInput.checked = !!settings.autoPost;
 
   updateBadge();
   renderTray();
