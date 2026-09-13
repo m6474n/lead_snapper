@@ -7,27 +7,39 @@ const firebaseService = (() => {
   let _auth = null;
   let _db   = null;
 
+  function _ensureInit(config) {
+    if (typeof firebase === "undefined") {
+      throw new Error("Firebase SDK is not loaded.");
+    }
+    if (!_app) {
+      const cfg = config || (typeof FIREBASE_CONFIG !== "undefined" ? FIREBASE_CONFIG : null);
+      if (firebase.apps && firebase.apps.length > 0) {
+        _app = firebase.app();
+      } else if (cfg) {
+        _app = firebase.initializeApp(cfg);
+      }
+    }
+    if (!_auth && firebase.auth) {
+      _auth = firebase.auth();
+    }
+    if (!_db && firebase.firestore) {
+      _db = firebase.firestore();
+    }
+  }
+
   // ── Init ────────────────────────────────────────────────────────
   function init(config) {
-    if (_app) return;
-    _app  = firebase.initializeApp(config);
-    _auth = firebase.auth();
-    _db   = firebase.firestore();
-
-    // Firestore offline persistence disabled to avoid Chrome extension deprecation warnings
-    // _db.enablePersistence().catch(() => {});
+    _ensureInit(config);
   }
 
   // ── Auth ─────────────────────────────────────────────────────────
 
   /**
    * Sign in using Chrome's identity API → Firebase credential.
-   * Steps:
-   *  1. Ask background.js to call chrome.identity.getAuthToken()
-   *  2. Exchange the OAuth access token for a Firebase GoogleAuthProvider credential
-   *  3. Sign in to Firebase with that credential
    */
   async function signInWithGoogle() {
+    _ensureInit();
+    if (!_auth) throw new Error("Firebase Auth service is unavailable.");
     const token = await _getAuthToken();
     const credential = firebase.auth.GoogleAuthProvider.credential(null, token);
     const result = await _auth.signInWithCredential(credential);
@@ -41,6 +53,8 @@ const firebaseService = (() => {
    * Register with Email and Password
    */
   async function signUpWithEmail(email, password) {
+    _ensureInit();
+    if (!_auth) throw new Error("Firebase Auth service is unavailable.");
     const userCredential = await _auth.createUserWithEmailAndPassword(email, password);
     await _saveUserProfile(userCredential.user);
     return userCredential.user;
@@ -50,12 +64,15 @@ const firebaseService = (() => {
    * Sign in with Email and Password
    */
   async function signInWithEmail(email, password) {
+    _ensureInit();
+    if (!_auth) throw new Error("Firebase Auth service is unavailable.");
     const userCredential = await _auth.signInWithEmailAndPassword(email, password);
     await _saveUserProfile(userCredential.user);
     return userCredential.user;
   }
 
   async function signOut() {
+    _ensureInit();
     // Remove cached Google token if present
     const token = await _getAuthToken(false).catch(() => null);
     if (token) {
@@ -63,14 +80,16 @@ const firebaseService = (() => {
         chrome.runtime.sendMessage({ action: "removeAuthToken", token }, resolve)
       );
     }
-    await _auth.signOut();
+    if (_auth) await _auth.signOut();
   }
 
   function getCurrentUser() {
+    _ensureInit();
     return _auth?.currentUser || null;
   }
 
   function onAuthStateChanged(callback) {
+    _ensureInit();
     if (!_auth) { callback(null); return () => {}; }
     return _auth.onAuthStateChanged(callback);
   }
@@ -186,6 +205,7 @@ const firebaseService = (() => {
    * @returns {{ success: boolean, count?: number, reason?: string }}
    */
   async function syncLeadsToFirestore(leads, type) {
+    _ensureInit();
     const user = _auth?.currentUser;
     if (!user || !_db) return { success: false, reason: "not_signed_in" };
     if (!leads || leads.length === 0) return { success: true, count: 0 };
@@ -214,6 +234,7 @@ const firebaseService = (() => {
    * Delete a single lead from Firestore top-level `leads` collection.
    */
   async function deleteLeadFromFirestore(lead, type) {
+    _ensureInit();
     const user = _auth?.currentUser;
     if (!user || !_db) return;
     const id = _leadId(lead, type);
@@ -228,6 +249,7 @@ const firebaseService = (() => {
    * @returns {Array}
    */
   async function fetchLeadsFromFirestore(type) {
+    _ensureInit();
     const user = _auth?.currentUser;
     if (!user || !_db) return [];
 
