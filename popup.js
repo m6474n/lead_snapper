@@ -533,6 +533,42 @@ function readForm() {
   };
 }
 
+function formatWebhookPayload(lead) {
+  const REQUIRED_KEYS = new Set([
+    "name",
+    "phone",
+    "email",
+    "businessName",
+    "source",
+    "status",
+    "industry",
+    "challenge"
+  ]);
+
+  const topLevel = {
+    name:         lead.name || lead.businessName || "",
+    phone:        lead.phone || "",
+    email:        lead.email || "",
+    businessName: lead.businessName || lead.name || "",
+    source:       lead.source || "Lead Snapper Extension",
+    status:       lead.status || "New",
+    industry:     lead.industry || lead.category || "",
+    challenge:    lead.challenge || lead.note || lead.description || ""
+  };
+
+  const customFields = {};
+  for (const [key, val] of Object.entries(lead)) {
+    if (!REQUIRED_KEYS.has(key) && val !== undefined && val !== null && val !== "") {
+      customFields[key] = val;
+    }
+  }
+
+  return {
+    ...topLevel,
+    customFields
+  };
+}
+
 // ── Add to CSV (in-memory storage) ───────────────────────────────
 addToCsvBtn.addEventListener("click", async () => {
   if (!currentLead) return;
@@ -567,7 +603,8 @@ async function doPostWebhook(showFeedback = true) {
     return;
   }
 
-  const lead = readForm();
+  const rawLead = readForm();
+  const leadPayload = formatWebhookPayload(rawLead);
   const apiKey = settings.apiKey || "snapper_webhook_secret_key_2026";
 
   postBtn.disabled = true;
@@ -575,7 +612,7 @@ async function doPostWebhook(showFeedback = true) {
 
   try {
     const response = await new Promise((resolve) => {
-      chrome.runtime.sendMessage({ action: "postWebhook", url, apiKey, data: lead }, resolve);
+      chrome.runtime.sendMessage({ action: "postWebhook", url, apiKey, data: leadPayload }, resolve);
     });
 
     if (response?.success) {
