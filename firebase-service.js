@@ -180,7 +180,7 @@ const firebaseService = (() => {
 
   /**
    * Upsert an array of leads to Firestore.
-   * Writes to both top-level `leads` collection and `users/{uid}/snap_leads` (or `maps_leads`).
+   * Writes strictly to top-level `leads` collection.
    * @param {Array}  leads  - lead objects
    * @param {string} type   - "snap" | "maps"
    * @returns {{ success: boolean, count?: number, reason?: string }}
@@ -190,23 +190,17 @@ const firebaseService = (() => {
     if (!user || !_db) return { success: false, reason: "not_signed_in" };
     if (!leads || leads.length === 0) return { success: true, count: 0 };
 
-    const collectionName = type === "maps" ? "maps_leads" : "snap_leads";
-    const userRef = _db.collection("users").doc(user.uid);
     const globalLeadsRef = _db.collection("leads");
 
-    // Firestore batch max = 500 ops (2 ops per lead = max 200 leads per batch)
-    const CHUNK = 200;
+    // Firestore batch max = 500 ops
+    const CHUNK = 450;
     for (let i = 0; i < leads.length; i += CHUNK) {
       const batch = _db.batch();
       leads.slice(i, i + CHUNK).forEach(lead => {
         const id  = _leadId(lead, type);
         const docData = _formatFirestoreLead(lead, user.uid, type);
 
-        // 1. Write to user subcollection: users/{uid}/snap_leads/{id} or maps_leads/{id}
-        const userSubRef = userRef.collection(collectionName).doc(id);
-        batch.set(userSubRef, docData, { merge: true });
-
-        // 2. Write to global leads collection: leads/{id}
+        // Write ONLY to top-level leads collection: leads/{id}
         const globalRef = globalLeadsRef.doc(id);
         batch.set(globalRef, docData, { merge: true });
       });
@@ -217,21 +211,19 @@ const firebaseService = (() => {
   }
 
   /**
-   * Delete a single lead from Firestore.
+   * Delete a single lead from Firestore top-level `leads` collection.
    */
   async function deleteLeadFromFirestore(lead, type) {
     const user = _auth?.currentUser;
     if (!user || !_db) return;
-    const collectionName = type === "maps" ? "maps_leads" : "snap_leads";
-    const id  = _leadId(lead, type);
-    await _db.collection("users").doc(user.uid)
-      .collection(collectionName).doc(id).delete().catch(() => {});
+    const id = _leadId(lead, type);
+    await _db.collection("leads").doc(id).delete().catch(() => {});
   }
 
   // ── Firestore: Read ──────────────────────────────────────────────
 
   /**
-   * Fetch all leads for the current user from Firestore.
+   * Fetch all leads for the current user from top-level `leads` collection.
    * @param {string} type - "snap" | "maps"
    * @returns {Array}
    */
@@ -239,10 +231,8 @@ const firebaseService = (() => {
     const user = _auth?.currentUser;
     if (!user || !_db) return [];
 
-    const collectionName = type === "maps" ? "maps_leads" : "snap_leads";
-    const snapshot = await _db.collection("users").doc(user.uid)
-      .collection(collectionName)
-      .orderBy("scrapedAt", "desc")
+    const snapshot = await _db.collection("leads")
+      .where("userId", "==", user.uid)
       .get();
 
     return snapshot.docs.map(doc => ({ _firestoreId: doc.id, ...doc.data() }));
