@@ -219,7 +219,129 @@ function extractLeadData() {
     } catch {}
   }
 
+  // ── Social Media Links Extraction ─────────────────────────────
+  const socialLinks = {
+    linkedin: "",
+    twitter: "",
+    facebook: "",
+    instagram: "",
+    youtube: "",
+    github: ""
+  };
+
+  const allAnchors = Array.from(document.querySelectorAll('a[href]'));
+  allAnchors.forEach(a => {
+    const href = a.href || "";
+    if (!socialLinks.linkedin && /linkedin\.com\/(company|in)\//i.test(href)) socialLinks.linkedin = href;
+    if (!socialLinks.twitter && /(twitter\.com|x\.com)\//i.test(href) && !href.includes('/intent/')) socialLinks.twitter = href;
+    if (!socialLinks.facebook && /facebook\.com\//i.test(href) && !href.includes('/sharer/')) socialLinks.facebook = href;
+    if (!socialLinks.instagram && /instagram\.com\//i.test(href)) socialLinks.instagram = href;
+    if (!socialLinks.youtube && /youtube\.com\/(channel|c|user|@)/i.test(href)) socialLinks.youtube = href;
+    if (!socialLinks.github && /github\.com\//i.test(href)) socialLinks.github = href;
+  });
+
+  // Attach social links to custom fields object
+  data.socialLinks = socialLinks;
+  if (socialLinks.linkedin) data.linkedin = socialLinks.linkedin;
+  if (socialLinks.twitter) data.twitter = socialLinks.twitter;
+  if (socialLinks.facebook) data.facebook = socialLinks.facebook;
+  if (socialLinks.instagram) data.instagram = socialLinks.instagram;
+
+  // ── Contact / About Page Links Discovery ───────────────────────
+  const contactPageUrls = [];
+  allAnchors.forEach(a => {
+    const href = a.href || "";
+    const text = (a.innerText || "").toLowerCase();
+    const isContactLink = /\b(contact|about|touch|reach-us|get-in-touch|support|team)\b/i.test(href) ||
+                          /\b(contact|about|reach us|get in touch)\b/i.test(text);
+    if (isContactLink && href.startsWith("http") && !contactPageUrls.includes(href) && href !== window.location.href) {
+      contactPageUrls.push(href);
+    }
+  });
+
+  data.contactPageUrls = contactPageUrls.slice(0, 5); // top 5 contact routes
+
   return data;
+}
+
+// ── Multi-Page Crawl Helper (Crawls contact pages / sitemap links in background) ──
+async function deepCrawlSite() {
+  const primaryData = extractLeadData();
+  const origin = window.location.origin;
+
+  // Standard routes to try if no links found in DOM
+  const candidateRoutes = [
+    '/contact',
+    '/contact-us',
+    '/about',
+    '/about-us',
+    '/contactus',
+    '/get-in-touch'
+  ];
+
+  const targetUrls = new Set(primaryData.contactPageUrls || []);
+  candidateRoutes.forEach(r => targetUrls.add(origin + r));
+
+  // Also attempt sitemap.xml detection
+  try {
+    const sitemapRes = await fetch(origin + '/sitemap.xml', { method: 'GET' }).catch(() => null);
+    if (sitemapRes && sitemapRes.ok) {
+      const text = await sitemapRes.text();
+      const locMatches = [...text.matchAll(/<loc>(https?:\/\/[^<]+)<\/loc>/gi)];
+      locMatches.forEach(m => {
+        const u = m[1];
+        if (/\b(contact|about)\b/i.test(u)) targetUrls.add(u);
+      });
+    }
+  } catch {}
+
+  // Fetch up to 4 target contact URLs asynchronously
+  const fetchUrls = Array.from(targetUrls).slice(0, 4);
+  for (const targetUrl of fetchUrls) {
+    if (targetUrl === window.location.href) continue;
+    try {
+      const res = await fetch(targetUrl, { headers: { 'Accept': 'text/html' } });
+      if (!res.ok) continue;
+      const htmlText = await res.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlText, "text/html");
+
+      // Extract Email if missing
+      if (!primaryData.email) {
+        const mailto = doc.querySelector('a[href^="mailto:"]');
+        if (mailto) {
+          primaryData.email = mailto.href.replace("mailto:", "").split("?")[0].trim();
+        } else {
+          const emailMatches = htmlText.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g);
+          if (emailMatches) {
+            const filtered = emailMatches.filter(e => !e.includes("example.") && !e.includes("sentry") && !e.includes("@2x") && !e.includes("png"));
+            if (filtered.length > 0) primaryData.email = filtered[0];
+          }
+        }
+      }
+
+      // Extract Phone if missing
+      if (!primaryData.phone) {
+        const tel = doc.querySelector('a[href^="tel:"]');
+        if (tel) {
+          primaryData.phone = tel.href.replace("tel:", "").trim();
+        }
+      }
+
+      // Extract Social Media if missing
+      const docAnchors = Array.from(doc.querySelectorAll('a[href]'));
+      docAnchors.forEach(a => {
+        const href = a.href || "";
+        if (!primaryData.linkedin && /linkedin\.com\/(company|in)\//i.test(href)) primaryData.linkedin = href;
+        if (!primaryData.twitter && /(twitter\.com|x\.com)\//i.test(href) && !href.includes('/intent/')) primaryData.twitter = href;
+        if (!primaryData.facebook && /facebook\.com\//i.test(href) && !href.includes('/sharer/')) primaryData.facebook = href;
+        if (!primaryData.instagram && /instagram\.com\//i.test(href)) primaryData.instagram = href;
+      });
+
+    } catch {}
+  }
+
+  return primaryData;
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -474,12 +596,10 @@ function extractCardData(card, results) {
 // ── Message Listener ──────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "scrape") {
-    try {
-      const data = extractLeadData();
-      sendResponse({ success: true, data });
-    } catch (err) {
-      sendResponse({ success: false, error: err.message });
-    }
+    deepCrawlSite()
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true; // async response
   }
 
   if (message.action === "scrapeGoogleMaps") {
