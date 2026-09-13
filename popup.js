@@ -534,22 +534,36 @@ function readForm() {
 }
 
 function formatWebhookPayload(lead) {
-  const REQUIRED_KEYS = new Set([
+  const TOP_LEVEL_MODEL_KEYS = new Set([
+    "id",
+    "userId",
+    "businessName",
+    "challenge",
+    "createdAt",
+    "email",
+    "industry",
     "name",
     "phone",
-    "email",
-    "businessName",
+    "countryCode",
+    "revenue",
     "source",
     "status",
-    "industry",
-    "challenge"
+    "website",
+    "address",
+    "templateId",
+    "templateName"
   ]);
 
+  const bizName = lead.businessName || lead.name || "";
+  const contactName = lead.contactName || lead.name || bizName;
+
   const topLevel = {
-    name:         lead.name || lead.businessName || "",
-    phone:        lead.phone || "",
+    name:         contactName,
+    businessName: bizName,
     email:        lead.email || "",
-    businessName: lead.businessName || lead.name || "",
+    phone:        lead.phone || "",
+    website:      lead.website || lead.url || "",
+    address:      lead.address || "",
     source:       lead.source || "Lead Snapper Extension",
     status:       lead.status || "New",
     industry:     lead.industry || lead.category || "",
@@ -558,7 +572,7 @@ function formatWebhookPayload(lead) {
 
   const customFields = {};
   for (const [key, val] of Object.entries(lead)) {
-    if (!REQUIRED_KEYS.has(key) && val !== undefined && val !== null && val !== "") {
+    if (!TOP_LEVEL_MODEL_KEYS.has(key) && val !== undefined && val !== null && val !== "") {
       customFields[key] = val;
     }
   }
