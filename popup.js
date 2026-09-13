@@ -158,55 +158,67 @@ function openAuthModal() {
 }
 
 function closeAuthModal() {
-  authModal.classList.add("hidden");
-  authEmail.value = "";
-  authPassword.value = "";
+  if (authModal) authModal.classList.add("hidden");
+  if (authEmail) authEmail.value = "";
+  if (authPassword) authPassword.value = "";
   hideAuthModalError();
 }
 
 function showAuthModalError(msg) {
+  if (!authModalError) return;
   authModalError.textContent = msg;
   authModalError.classList.remove("hidden");
 }
 
 function hideAuthModalError() {
+  if (!authModalError) return;
   authModalError.classList.add("hidden");
   authModalError.textContent = "";
 }
 
 // ── Email Sign In ─────────────────────────────────────────────────
-emailAuthForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const email = authEmail.value.trim();
-  const password = authPassword.value;
+if (emailAuthForm) {
+  emailAuthForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = authEmail ? authEmail.value.trim() : "";
+    const password = authPassword ? authPassword.value : "";
 
-  if (!email || !password) {
-    showAuthModalError("Please provide both email and password.");
-    return;
-  }
-
-  emailAuthSubmitBtn.disabled = true;
-  emailAuthSubmitBtn.textContent = "Signing in…";
-  hideAuthModalError();
-
-  try {
-    await firebaseService.signInWithEmail(email, password);
-    showStatus("✓ Signed in successfully!", "success");
-    closeAuthModal();
-  } catch (err) {
-    console.error("Email auth error:", err);
-    let msg = err.message || "Authentication failed.";
-    if (err.code === "auth/invalid-email") {
-      msg = "Invalid email format.";
-    } else if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
-      msg = "Invalid email or password. Please check your credentials.";
+    if (!email || !password) {
+      showAuthModalError("Please provide both email and password.");
+      return;
     }
-    showAuthModalError(msg);
-  } finally {
-    emailAuthSubmitBtn.disabled = false;
-    emailAuthSubmitBtn.textContent = "Sign In";
-  }
-});
+
+    if (emailAuthSubmitBtn) {
+      emailAuthSubmitBtn.disabled = true;
+      emailAuthSubmitBtn.textContent = "Signing in…";
+    }
+    hideAuthModalError();
+
+    try {
+      await firebaseService.signInWithEmail(email, password);
+      showStatus("✓ Signed in successfully!", "success");
+      closeAuthModal();
+    } catch (err) {
+      console.error("Email auth error:", err);
+      let msg = err.message || "Authentication failed.";
+      if (err.code === "auth/invalid-email") {
+        msg = "Invalid email format.";
+      } else if (
+        err.code === "auth/user-not-found" ||
+        err.code === "auth/wrong-password" ||
+        err.code === "auth/invalid-credential"
+      ) {
+        msg = "Incorrect email or password. Please check your credentials.";
+      }
+      showAuthModalError(msg);
+    } finally {
+      if (emailAuthSubmitBtn) {
+        emailAuthSubmitBtn.disabled = false;
+        emailAuthSubmitBtn.textContent = "Sign In";
+      }
+    }
+  });
+}
 
 // ── Sign Out ──────────────────────────────────────────────────────
 signOutBtn.addEventListener("click", async () => {
