@@ -387,9 +387,9 @@ settingsBtn.addEventListener("click", () => {
 });
 
 saveSettingsBtn.addEventListener("click", async () => {
-  settings.webhookUrl = webhookUrlInput.value.trim();
-  settings.apiKey = webhookApiKeyInput.value.trim() || "snapper_webhook_secret_key_2026";
-  settings.autoPost = autoPostInput.checked;
+  settings.webhookUrl = webhookUrlInput ? webhookUrlInput.value.trim() : "";
+  settings.apiKey = webhookApiKeyInput ? webhookApiKeyInput.value.trim() : "snapper_webhook_secret_key_2026";
+  settings.autoPost = autoPostInput ? autoPostInput.checked : false;
   await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
   showStatus("Settings saved", "info");
   settingsPanel.classList.add("hidden");
