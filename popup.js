@@ -25,6 +25,7 @@ const leadForm = document.getElementById("leadForm");
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsPanel = document.getElementById("settingsPanel");
 const webhookUrlInput = document.getElementById("webhookUrl");
+const webhookApiKeyInput = document.getElementById("webhookApiKey");
 const autoPostInput = document.getElementById("autoPost");
 const saveSettingsBtn = document.getElementById("saveSettings");
 const siteUrl = document.getElementById("siteUrl");
@@ -106,14 +107,15 @@ let authMode = "signin"; // "signin" | "register"
 async function init() {
   const stored = await chrome.storage.local.get([STORAGE_KEY, SETTINGS_KEY, MAPS_KEY]);
   leads     = stored[STORAGE_KEY] || [];
-  settings  = stored[SETTINGS_KEY] || { webhookUrl: "", autoPost: false };
+  settings  = stored[SETTINGS_KEY] || { webhookUrl: "", apiKey: "snapper_webhook_secret_key_2026", autoPost: false };
 
   const mapsData = stored[MAPS_KEY] || { leads: [], pageCount: 0 };
   mapsLeads    = mapsData.leads || [];
   mapsPageCount = mapsData.pageCount || 0;
 
-  webhookUrlInput.value = settings.webhookUrl;
-  autoPostInput.checked = settings.autoPost;
+  webhookUrlInput.value = settings.webhookUrl || "";
+  webhookApiKeyInput.value = settings.apiKey || "snapper_webhook_secret_key_2026";
+  autoPostInput.checked = !!settings.autoPost;
 
   updateBadge();
   renderTray();
@@ -439,6 +441,7 @@ settingsBtn.addEventListener("click", () => {
 
 saveSettingsBtn.addEventListener("click", async () => {
   settings.webhookUrl = webhookUrlInput.value.trim();
+  settings.apiKey = webhookApiKeyInput.value.trim() || "snapper_webhook_secret_key_2026";
   settings.autoPost = autoPostInput.checked;
   await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
   showStatus("Settings saved", "info");
@@ -496,7 +499,7 @@ function populateForm(data) {
   })();
   siteUrl.textContent = domain;
 
-  fields.name.value = data.businessName || "";
+  fields.name.value = data.businessName || data.name || "";
   fields.email.value = data.email || "";
   fields.phone.value = data.phone || "";
   fields.address.value = data.address || "";
@@ -505,14 +508,28 @@ function populateForm(data) {
 }
 
 function readForm() {
+  const bizName = fields.name.value.trim();
+  const emailVal = fields.email.value.trim();
+  const phoneVal = fields.phone.value.trim();
+  const addrVal = fields.address.value.trim();
+  const descVal = fields.desc.value.trim();
+  const noteVal = fields.note.value.trim();
+
   return {
     ...currentLead,
-    businessName: fields.name.value.trim(),
-    email: fields.email.value.trim(),
-    phone: fields.phone.value.trim(),
-    address: fields.address.value.trim(),
-    description: fields.desc.value.trim(),
-    note: fields.note.value.trim(),
+    name:         currentLead?.contactName || bizName,
+    businessName: bizName,
+    email:        emailVal,
+    phone:        phoneVal,
+    address:      addrVal,
+    description:  descVal,
+    note:         noteVal,
+    source:       "Lead Snapper Extension",
+    status:       "New",
+    industry:     currentLead?.category || "",
+    challenge:    noteVal || descVal,
+    url:          currentLead?.url || window.location.href,
+    scrapedAt:    currentLead?.scrapedAt || new Date().toISOString()
   };
 }
 
@@ -551,13 +568,14 @@ async function doPostWebhook(showFeedback = true) {
   }
 
   const lead = readForm();
+  const apiKey = settings.apiKey || "snapper_webhook_secret_key_2026";
 
   postBtn.disabled = true;
   postBtn.textContent = "Posting…";
 
   try {
     const response = await new Promise((resolve) => {
-      chrome.runtime.sendMessage({ action: "postWebhook", url, data: lead }, resolve);
+      chrome.runtime.sendMessage({ action: "postWebhook", url, apiKey, data: lead }, resolve);
     });
 
     if (response?.success) {

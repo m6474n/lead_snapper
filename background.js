@@ -9,10 +9,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // ── Webhook POST ────────────────────────────────────────────────
   if (message.action === "postWebhook") {
-    const { url, data } = message;
+    const { url, data, apiKey } = message;
+    const headers = { "Content-Type": "application/json" };
+    const keyToUse = apiKey || data?.apiKey || "snapper_webhook_secret_key_2026";
+    if (keyToUse) {
+      headers["x-api-key"] = keyToUse;
+    }
+
     fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: headers,
       body: JSON.stringify(data)
     })
       .then(async (res) => {
